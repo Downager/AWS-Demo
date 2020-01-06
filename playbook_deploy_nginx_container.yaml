@@ -1,0 +1,38 @@
+- hosts: AWS-DEMO
+  remote_user: relk
+  tasks:
+    - name: Change ownership of /opt directory
+      file:
+        path: /opt
+        state: directory
+        owner: relk
+        group: devops
+        mode: "0775"
+      become: yes
+    
+    - name: Install git
+      package:
+        name: git
+        state: latest
+      become: yes
+
+    - name: Clone nginx_whatismyip
+      git:
+        repo: 'git@github.com:Downager/nginx_whatismyip.git'
+        dest: /opt/nginx_whatismyip
+        ssh_opts: "-o StrictHostKeyChecking=no"
+        force: yes
+
+    - name: docker-compose down 'nginx_whatismyip'
+      docker_compose:
+        project_src: /opt/nginx_whatismyip
+        state: absent
+      register: output
+
+    - name: docker-compose up 'nginx_whatismyip'
+      docker_compose:
+        project_src: /opt/nginx_whatismyip
+        state: present
+        build: yes
+        pull: yes
+      register: output

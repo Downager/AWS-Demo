@@ -1,0 +1,55 @@
+---
+- hosts: AWS-DEMO
+  remote_user: ubuntu
+  become: yes
+  become_user: root
+  vars:
+    users:
+    - username: relk
+      groups: devops, docker
+      key: "ssh-rsa AAAAB3NzaC1yc2EAAAADAQABAAABAQDq0klieYwNfC56z/j21RDvxG9hetD0CvQnW/AErMunEbjhODlzoN38+7ZnwNVKR8Fuy2SpGj7MzFphZ3hTbwDxzmTa8AY0dQUZ/Swuhv40kcV6xapJf9O1P57awrrMG4TEcRdsVYD3j3GQ4L8DyLvmDvoc3nSOzASPKgsCydDHJ1OSzjdcmFkNd08An0FsRbxzPHQmXTCMA1xzugBwI+vSXn130XiuijN5sxIxLNm3ZY9KtG5wcdaSkFXYqBC5tO6OBiz+cjU0cHXI14RSW4uL6f7DYXnZtI/+GjF+TXnFwtiewr8IFL8oaThuQt7cAeOVn/us2n1IbCud/Km7sq8l relk@relk-Inspiron-7375"
+    - username: devops_member_1
+      groups: devops, docker
+      key: "ssh-rsa AAAAB3NzaC1yc2EAAAADAQABAAACAQDLO7r+VhbpIxxT7WLP4vdH9J314+u3qTlcAjWdg2CfFFTrXgpFh3Bysl4FzTuMDa+rF775KMNUFhum2WCgIOOhBOkOuIFmS5wp0vQsOFp28jKDaFuHstc8nMDk+WNYdDkDHtiAtF+syagnK1jFhKChIaeuoilH+8bg4lBgH6DItDUMkYLa/eSmFHKzcjbHi7uLvWyektDtXeIsJ9XUTplYwkSUT3DNjW5cNeHJ9BZhYpjMes2lW+f5lt2SW2tlzRQRVwUmRO58320CjPDGcsa1XG7JJ3X5BAdhE42S35Emw4CHZMnJzqwJdnfzZnLtqRDnKgN4KVMgzxj/qlhq0BIM2srP5Y0uuf8XcVgGgoQ1RdZ+V64mR3Q5AC0nW9uLL2pcFi6A6QfHWc7qbOison+aSC+16tIO4KDjg3H6iPQfk7r2yuyRr9aagxe7Z/yYAT+8OBpilEcZDlBzx37o0HpAMhurtQmP4esvb/DJylOpmx/QzdQ1nhvZa0rt2eQmJTsI+wNMPbtxy8PmKPAANOQUo2DzQz2gn/diwkCqTzfkiLSoMm97WhzHWEcyx48VOL7IT4IjW6+QfbxjSiL2Wpn9SNP3C3ifPNIwbQIEnr967MX8Q7eAC6sP8eLBSnXCvMr84E38/kSW59SOEVHgLw6aecNv8KZ1ZyMXgfZuU4dC/w=="
+    - username: devops_member_2
+      groups: devops, docker
+      key: "ssh-rsa AAAAB3NzaC1yc2EAAAADAQABAAACAQDLR9oDio9h65cTw17a9uQEUxgeXdRW2UXGlQhJBG2nQ7bRQD7Dftvcs8NtyNXcOe7o/LMU+ip3M/FpDxuRt5Zc81dh1Qt59NfoiCka/mbkMuSDxhpX/Juy3B0fXPDTMf2P15KP4z6A4IcEh6b+ZgaQGrUVLYeuYixgZwxGj5XWNBmLnqR8W4zAyTVksXicCFjC23/fwPwMpno5Pod+xhUQNetOqvqgNs3hWKimZN82WV64kTBjkXmDYGoo3PtBr+3Jq+mUj7hhGxdd/gc1G/VhU6WuAZmCGWBqFIs8/PY5hBLbs6QRnYT4OVFFkOOxqtem1EXVy8pIH4fgLAmW0T/7ScmuSInsDIEgnA9hz2JJFfjpRIneeUxJtGOUGcGJvpCM/1O8Z+gDph0pJ+eWKvGYZce7xBRwxh44rfrUJmudmoglHNHvP5VcezeW2BcC7NNoannXOMGC4weNdibUYZ2YsWhnW3gR7Co0G8XlZ8zaDC2GdcTDhTV5pSHPKcaKxPp2sykWJci51XD570oEiNAzOprX2kjZG1gdpbQu8XTsqroSxgRtWuUSPyfvSEuCdb7frcxo51jx85eLfBhreRLqRe5AHOcXDz7o1DEdL+lp/6Z+AHx5prUWCn6aDu2iP6slft0aNw0bLbmogNnIQq0xviuiLpermhPw8G0xDqtBgQ=="
+
+  tasks:
+    - name: Ensure group "devops" exists
+      group:
+        name: devops
+        state: present
+
+    - name: "Create user accounts"
+      user:
+        name: "{{ item.username }}"
+        groups: "{{ item.groups }}"
+        shell: "/bin/bash"
+      with_items: "{{ users }}"
+
+    - name: "Add authorized keys"
+      authorized_key:
+        user: "{{ item.username }}"
+        key: "{{ item.key }}"
+      with_items: "{{ users }}"
+  
+    - name: Ensuring that devops group is able to use sudo without password
+      lineinfile:
+        path: /etc/sudoers
+        regexp: '^%devops'
+        line: '%devops ALL=(ALL) NOPASSWD: ALL'
+        validate: 'visudo -cf %s'
+    
+    - name: Password based logins are disabled - only public key based logins are allowed.
+      lineinfile:
+        path: "{{ item.path }}"
+        regexp: "{{ item.regexp }}"
+        line: "{{ item.line }}"
+        validate: 'sshd -t -f %s'
+      with_items:
+      - { path: "/etc/ssh/sshd_config", regexp: "^#?AuthenticationMethods", line: "AuthenticationMethods publickey" }
+      - { path: "/etc/ssh/sshd_config", regexp: "^#?PasswordAuthentication", line: "PasswordAuthentication no" }
+      - { path: "/etc/ssh/sshd_config", regexp: "^#?ChallengeResponseAuthentication", line: "ChallengeResponseAuthentication no" }
+      - { path: "/etc/ssh/sshd_config", regexp: "^#?PubkeyAuthentication", line: "PubkeyAuthentication yes" }
+      - { path: "/etc/ssh/sshd_config", regexp: "^#?PermitRootLogin", line: "PermitRootLogin prohibit-password" }
